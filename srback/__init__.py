@@ -1,0 +1,2 @@
+class FastAPI:
+    pass
