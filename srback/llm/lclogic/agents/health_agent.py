@@ -1,5 +1,4 @@
 import sys
-import re
 import os
 from langchain.chains import LLMMathChain
 from langchain.chains import RetrievalQAWithSourcesChain
@@ -29,43 +28,28 @@ from langchain.schema import (
 )
 
 
+from pathlib import Path
+
+
+
 # import custom tools
 from srback.core.config import settings
 from langchain.tools import Tool
 llm = ChatOpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
 chat = OpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
 
-FILE_NAME = "pdf/greating_data_korean_new.csv"
+# FILE_NAME = "pdf/greating_data_korean_new.csv"
+PERSIST_DIRECTORY = 'genChromaDB/db'
 
 def getHealthRecoFood(input):
-    loader = CSVLoader(FILE_NAME)
-    documents = loader.load()
-    output = []
-    # text 정제
-    for page in documents:
-        text = page.page_content
-        text = re.sub('\n', ' ', text)  # Replace newline characters with a space
-        text = re.sub('\t', ' ', text)  # Replace tab characters with a space
-        text = re.sub(' +', ' ', text)  # Reduce multiple spaces to single
-        output.append(text)
-    print(output)
-    doc_chunks = []
-    for line in output:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000, # 최대 청크 길이
-            separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""], #  텍스트를 청크로 분할하는 데 사용되는 문자 목록
-            chunk_overlap=0, # 인접한 청크 간에 중복되는 문자 수
-        )
-        chunks = text_splitter.split_text(line)
-        for i, chunk in enumerate(chunks):
-            doc = Document(
-                page_content=chunk, metadata={"page": i, "source": FILE_NAME}
-            )
-            doc_chunks.append(doc)
-            
-        
+
+    persist_directory_path = Path(PERSIST_DIRECTORY).resolve()
+    print("PERSIST_DIRECTORY(vectorDB)의 절대 경로:", persist_directory_path)
+
     embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
-    index = Chroma.from_documents(doc_chunks, embeddings)
+    vectorDB = Chroma(persist_directory=PERSIST_DIRECTORY, embedding_function=embeddings)
+    print(vectorDB)
+    
     system_template="""끝에 있는 질문에 답하려면 다음 컨텍스트를 사용하십시오. 답을 모르면 모른다고 말하고 답을 지어내려고 하지 마세요.
     당신이 나의 훌륭한 메뉴 추천인 역할을 해주기를 바랍니다. 그리팅 메뉴에서만 추천해야 한다.
     식사 계획은 매일 아침, 점심, 저녁 식사를 포함해야 합니다. 최대한 겹치지 않도록 합니다.
@@ -87,7 +71,7 @@ def getHealthRecoFood(input):
     bk_chain = RetrievalQAWithSourcesChain.from_chain_type(
         ChatOpenAI(openai_api_key=os.getenv("OPEN_API_KEY"),  model_name="gpt-3.5-turbo", temperature=0), 
         chain_type="stuff", 
-        retriever=index.as_retriever(),
+        retriever=vectorDB.as_retriever(),
         chain_type_kwargs=chain_type_kwargs,
         reduce_k_below_max_tokens=True
     )
