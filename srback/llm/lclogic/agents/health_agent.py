@@ -35,7 +35,7 @@ from langchain.tools import Tool
 llm = ChatOpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
 chat = OpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
 
-FILE_NAME = "pdf/greating_data_korean.csv"
+FILE_NAME = "pdf/greating_data_korean_new.csv"
 
 def getHealthRecoFood(input):
     loader = CSVLoader(FILE_NAME)
