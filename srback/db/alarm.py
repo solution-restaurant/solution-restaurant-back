@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-class Meal(BaseModel):
+class Alarm(BaseModel):
     userRecoMeal: str
     userResOfAi: str
     userChkEat: str
