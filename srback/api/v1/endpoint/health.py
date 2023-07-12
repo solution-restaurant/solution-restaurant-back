@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any, List, Union
 from fastapi import APIRouter, Depends, HTTPException
 from srback.llm.lclogic import lcmain
 
@@ -41,7 +41,7 @@ class MealModel(BaseModel):
     userChkEat: str
     userMLD: str
     userAlarmImg: str
-    userMealInfo: list[str] | None = None
+    userMealInfo: Union[List[str], None] = None
 
 @router.post("/join")
 def user_join(data : JoinModel):
