@@ -1,20 +1,38 @@
-import sys
-import re
-import os
+# not used Start
 from langchain.chains import LLMMathChain
-from langchain.chains import RetrievalQAWithSourcesChain
-from langchain.vectorstores import Chroma
 from langchain.document_loaders import CSVLoader
-from langchain.agents import initialize_agent
-from langchain.chat_models import ChatOpenAI
-from langchain.llms import OpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.docstore.document import Document
-from langchain.memory import ConversationBufferMemory
+from langchain.schema import (
+    AIMessage,
+    HumanMessage,
+    SystemMessage
+)
+# FILE_NAME = "pdf/greating_data_korean_new.csv"
+# not used End
+import sys
 import os
-
+from pathlib import Path
+from srback.core.config import settings
+from langchain.chat_models import ChatOpenAI
+# embedding Start
+from langchain.vectorstores import Chroma
+from langchain.embeddings.openai import OpenAIEmbeddings
+# embedding End
+# agent Start 20230709
+from langchain.agents import initialize_agent
+from langchain.tools import Tool
+# agent End
+# redisBufferMemory Start
+from langchain.memory import ConversationBufferMemory
+from langchain.agents import ZeroShotAgent, AgentExecutor
+from langchain.memory.chat_message_histories import RedisChatMessageHistory
+# redisBufferMemory End
+# chain Start
+from langchain.chains import RetrievalQAWithSourcesChain
 from langchain import LLMChain
+# chain End
+# prompt Start
 from langchain.prompts import PromptTemplate
 from langchain.prompts import (
     ChatPromptTemplate, 
@@ -22,60 +40,39 @@ from langchain.prompts import (
     SystemMessagePromptTemplate, 
     HumanMessagePromptTemplate
 )
-from langchain.schema import (
-    AIMessage,
-    HumanMessage,
-    SystemMessage
+# prompt End
+
+
+
+
+
+chat_model = ChatOpenAI(
+    openai_api_key=os.getenv("OPEN_API_KEY"),
+    model_name="gpt-3.5-turbo",
+    temperature=0
 )
-
-
-# import custom tools
-from srback.core.config import settings
-from langchain.tools import Tool
-llm = ChatOpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
-chat = OpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
-
-FILE_NAME = "pdf/greating_data_korean_new.csv"
+PERSIST_DIRECTORY = 'genChromaDB/db'
 
 def getHealthRecoFood(input):
-    loader = CSVLoader(FILE_NAME)
-    documents = loader.load()
-    output = []
-    # text 정제
-    for page in documents:
-        text = page.page_content
-        text = re.sub('\n', ' ', text)  # Replace newline characters with a space
-        text = re.sub('\t', ' ', text)  # Replace tab characters with a space
-        text = re.sub(' +', ' ', text)  # Reduce multiple spaces to single
-        output.append(text)
-    print(output)
-    doc_chunks = []
-    for line in output:
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000, # 최대 청크 길이
-            separators=["\n\n", "\n", ".", "!", "?", ",", " ", ""], #  텍스트를 청크로 분할하는 데 사용되는 문자 목록
-            chunk_overlap=0, # 인접한 청크 간에 중복되는 문자 수
-        )
-        chunks = text_splitter.split_text(line)
-        for i, chunk in enumerate(chunks):
-            doc = Document(
-                page_content=chunk, metadata={"page": i, "source": FILE_NAME}
-            )
-            doc_chunks.append(doc)
-            
-        
+
+    persist_directory_path = Path(PERSIST_DIRECTORY).resolve()
+    print("PERSIST_DIRECTORY(vectorDB)의 절대 경로:", persist_directory_path)
+
     embeddings = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
-    index = Chroma.from_documents(doc_chunks, embeddings)
-    system_template="""끝에 있는 질문에 답하려면 다음 컨텍스트를 사용하십시오. 답을 모르면 모른다고 말하고 답을 지어내려고 하지 마세요.
-    당신이 나의 훌륭한 메뉴 추천인 역할을 해주기를 바랍니다. 그리팅 메뉴에서만 추천해야 한다.
-    식사 계획은 매일 아침, 점심, 저녁 식사를 포함해야 합니다. 최대한 겹치지 않도록 합니다.
-    칼로리는 대메뉴 값만 따져봐야
-    식사 계획을 세울 수 없다면 할 수 없다고 말하지 마십시오.
-    아래는 예시입니다.
-    아침, 점심, 저녁 식단 짜주고 상품 설명 해줘야합니다.
-    추천 상품 음식 이름은 정확이 명시해 줘야합니다. 
-    알러지가 있는 사람은 알러지 해당하는 제품을 제외한 나머지 제품중 추천 해줘야합니다.
-    예시 : '추천상품 명'을 추천합니다 그 이유는'음식 설명'때문입니다.
+    vectorDB = Chroma(persist_directory=PERSIST_DIRECTORY, embedding_function=embeddings)
+    print(vectorDB)
+    
+    system_template="""To answer the question at the end, use the following context. If you don't know the answer, say you don't know and don't try to make up an answer.
+    I hope you will serve as my great menu recommender. It should only be recommended in the greeting menu.
+    Meal plans should include breakfast, lunch and dinner each day. Avoid overlapping as much as possible.
+    Calories should be counted only in the main menu
+    If you can't make a meal plan, don't say you can't.
+    Below is an example.
+    You have to plan breakfast, lunch, and dinner and explain the products.
+    Recommended product Food names must be clearly stated.
+    People with allergies should recommend products other than those for which they are allergic.
+    Example: 'Recommended product name' is recommended because of 'food description'.
+    
     {summaries}
     """
     messages = [
@@ -85,15 +82,14 @@ def getHealthRecoFood(input):
     prompt = ChatPromptTemplate.from_messages(messages)
     chain_type_kwargs = {"prompt": prompt}
     bk_chain = RetrievalQAWithSourcesChain.from_chain_type(
-        ChatOpenAI(openai_api_key=os.getenv("OPEN_API_KEY"),  model_name="gpt-3.5-turbo", temperature=0), 
+        llm=chat_model, 
         chain_type="stuff", 
-        retriever=index.as_retriever(),
+        retriever=vectorDB.as_retriever(),
         chain_type_kwargs=chain_type_kwargs,
         reduce_k_below_max_tokens=True
     )
 
     result = bk_chain({"question": input})
-    # result = bk_chain({"question": '300kcal 이하의 최종금액이 10000원이하 아침, 점심, 저녁 식단 짜주고 상품 설명 해줘'}) result['answer']
     return result['answer']
 
 def getHealthCoachingInfo(input):
@@ -105,14 +101,14 @@ def getHealthCoachingInfo(input):
         input_variables=["reviews"],
         template=template,
     )
-    chain = LLMChain(llm=chat, prompt=prompt)
+    chain = LLMChain(llm=chat_model, prompt=prompt)
     return chain.run(input)
 
 tools = [
     Tool(
         name="영양코칭 AI",
         func=getHealthCoachingInfo,
-        description="영양코칭AI로서 대답해주는 역할.",
+        description="Use it in a normal conversation",
     ),
     Tool(
         name="상품추천",
@@ -122,13 +118,51 @@ tools = [
     ),
 ]
 
+
+
 # Construct the react agent type.
-health_agent = initialize_agent(
+# health_agent = initialize_agent(
+#     # tools,
+#     tools=tools,
+#     prompt=prompt,
+#     llm=chat_model,
+#     agent="zero-shot-react-description",
+#     verbose=True,
+#     # stop=['\nObservation:'],
+# )
+
+
+# new action Start
+prefix = """Have a conversation with a human, answering the following questions as best you can. You must have to answer in Korean. You have access to the following tools:"""
+suffix = """Begin!"
+
+{chat_history}
+Question: {input}
+{agent_scratchpad}"""
+
+prompt = ZeroShotAgent.create_prompt(
     tools,
-    chat,
-    agent="zero-shot-react-description",
-    verbose=True,
-    stop=['\nObservation:'],
+    prefix=prefix,
+    suffix=suffix,
+    input_variables=["input", "chat_history", "agent_scratchpad"],
+)
+
+
+# llm_chain = LLMChain(chat_model, prompt=prompt)
+
+# run the agent
+message_history = RedisChatMessageHistory(
+    url="redis://localhost:6379/0", ttl=600, session_id="my-session"
+)
+
+memory = ConversationBufferMemory(
+    memory_key="chat_history", chat_memory=message_history
+)
+
+llm_chain = LLMChain(llm=chat_model, prompt=prompt)
+agent = ZeroShotAgent(llm_chain=llm_chain, tools=tools, verbose=True)
+agent_chain = AgentExecutor.from_agent_and_tools(
+    agent=agent, tools=tools, verbose=True, memory=memory
 )
 
 if __name__ == '__main__':
@@ -136,8 +170,9 @@ if __name__ == '__main__':
         question = ' '.join(sys.argv[1:])
         print('question: ' + question)
 
-        # run the agent
-        health_agent.run(question)
+        
+        # new action End
+        # health_agent.run(question)
     else:
         print('agent that answers questions using Weather and Datetime custom tools')
         print('usage: py tools_agent.py <question sentence>')
