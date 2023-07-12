@@ -4,3 +4,5 @@ class User(BaseModel):
     pw: str
     message: str
     age: int
+    alarmTime: str
+    alarmState: str
