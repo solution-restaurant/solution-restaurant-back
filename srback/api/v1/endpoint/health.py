@@ -168,6 +168,7 @@ def receive_message(data : Model):
   # example = conn.execute(users.select()).fetchall()
   data.userName='영양코칭AI'
   data.content =lcmain.health_agents(data.content)
+  data.content = data.content.replace('\n', '<br>')
   # data.content= lcmain.custom_health_agent(data.content)
   print(data)
   return data
