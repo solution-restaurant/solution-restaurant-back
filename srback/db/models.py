@@ -11,7 +11,7 @@ users = Table('user', meta,
               Column('alarmState', String(32)),
               )
 
-meals = Table('alarm', meta,
+alarms = Table('alarm', meta,
               Column('id', INTEGER(), primary_key=True),
               Column('userName', String(255)),
               Column('alarmState', String(255)),
