@@ -4,7 +4,7 @@ import os
 from langchain.callbacks import get_openai_callback
 
 # from srback.llm.lclogic.agents.health_agent import health_agent
-from srback.llm.lclogic.agents.health_agent import agent_chain
+# from srback.llm.lclogic.agents.health_agent import agent_chain
 
 
 # from langchain.llms import 
@@ -31,7 +31,7 @@ def run():
 def health_agents(text):
     try:
         # response= health_agent.run(text)
-        response= agent_chain.run(text)
+        response= health_agent.run(text)
     except Exception as e:
         response = str(e)
         if response.startswith("Could not parse LLM output: `"):

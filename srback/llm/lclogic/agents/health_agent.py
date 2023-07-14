@@ -1,5 +1,7 @@
 # not used Start
 from langchain.chains import LLMMathChain
+from langchain.chains import ChatVectorDBChain #deprecated
+from langchain.chains import ConversationalRetrievalChain
 from langchain.document_loaders import CSVLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -52,6 +54,7 @@ chat_model = ChatOpenAI(
     temperature=0
 )
 PERSIST_DIRECTORY = 'genChromaDB/db'
+PERSIST_DIRECTORY2 = 'genChromaDB/db2'
 
 def getHealthRecoFood(input):
 
@@ -92,6 +95,63 @@ def getHealthRecoFood(input):
     result = bk_chain({"question": input})
     return result['answer']
 
+def getNutrientInfo(input):
+    # template = '''\
+    #         "{reviews}에 대해서 영양코칭 AI처럼 대답해라"
+    #           \
+    #        '''
+    # prompt = PromptTemplate(
+    #     input_variables=["reviews"],
+    #     template=template,
+    # )
+
+    # persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()
+    # print("PERSIST_DIRECTORY2(vectorDB2)의 절대 경로:", persist_directory_path2)
+
+    # embeddings2 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
+    # vectorDB2 = Chroma(persist_directory=PERSIST_DIRECTORY2, embedding_function=embeddings2)
+    # print(vectorDB2)
+    # chat_history = [] #여기에 체팅 히스도리주면되려나 
+    # chain = ConversationalRetrievalChain.from_llm(llm=chat_model, retriever=vectorDB2.as_retriever(), return_source_documents=True, reduce_k_below_max_tokens=True)
+    # result = chain({"question":input, "chat_history": chat_history})
+    
+    # print("is result : " + result['answer'])
+    # return result['answer']
+
+
+
+    persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()
+    print("PERSIST_DIRECTORY(vectorDB2)의 절대 경로:", persist_directory_path2)
+
+    embeddings2 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
+    vectorDB2 = Chroma(persist_directory=PERSIST_DIRECTORY2, embedding_function=embeddings2)
+    print(vectorDB2)
+    
+    system_template="""You are an AI assistant for answering questions about nutrient.
+    You are given the following extracted parts of a long document and a question. Provide a conversational answer.
+    If you don't know the answer, just say "Hmm, I'm not sure." Don't try to make up an answer.
+    If the question is not about the most recent state of the union, politely inform them that you are tuned to only answer questions about the most recent state of the union.
+    You must have to answer in Korean.
+    {summaries}
+    """
+    messages = [
+        SystemMessagePromptTemplate.from_template(system_template),
+        HumanMessagePromptTemplate.from_template("{question}")
+    ]
+    prompt = ChatPromptTemplate.from_messages(messages)
+    chain_type_kwargs = {"prompt": prompt}
+    vectordbkwargs = {"search_distance": 0}
+    bk_chain = RetrievalQAWithSourcesChain.from_chain_type(
+        llm=chat_model, 
+        chain_type="stuff", 
+        retriever=vectorDB2.as_retriever(),
+        chain_type_kwargs=chain_type_kwargs,
+        reduce_k_below_max_tokens=True
+    )
+
+    result = bk_chain({"question": input, "vectordbkwargs": vectordbkwargs})
+    return result['answer']
+
 def getHealthCoachingInfo(input):
     template = '''\
             "{reviews}에 대해서 영양코칭 AI처럼 대답해라"
@@ -106,9 +166,15 @@ def getHealthCoachingInfo(input):
 
 tools = [
     Tool(
-        name="영양코칭 AI",
+        name="영양학정보",
+        func=getNutrientInfo,
+        description="Use it in a normal conversation, 구체적인 정보가 없을 경우 다음 tool로 넘어가라",
+        return_direct=True,
+    ),
+    Tool(
+        name="영양코칭",
         func=getHealthCoachingInfo,
-        description="Use it in a normal conversation",
+        description="Use it If you don't have the appropriate tool, use it last",
     ),
     Tool(
         name="상품추천",
