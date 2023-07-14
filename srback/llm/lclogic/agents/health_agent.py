@@ -33,6 +33,7 @@ from langchain.memory.chat_message_histories import RedisChatMessageHistory
 # chain Start
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain import LLMChain
+from langchain import SQLDatabase, SQLDatabaseChain
 # chain End
 # prompt Start
 from langchain.prompts import PromptTemplate
@@ -44,10 +45,6 @@ from langchain.prompts import (
 )
 # prompt End
 
-
-
-
-
 chat_model = ChatOpenAI(
     openai_api_key=os.getenv("OPEN_API_KEY"),
     model_name="gpt-3.5-turbo",
@@ -55,6 +52,49 @@ chat_model = ChatOpenAI(
 )
 PERSIST_DIRECTORY = 'genChromaDB/db'
 PERSIST_DIRECTORY2 = 'genChromaDB/db2'
+
+def getHealthRecoFoodSql(input):
+    # db 설정
+    db = SQLDatabase.from_uri(os.getenv("DB_PATH")
+                            ,include_tables=['meal']
+                            ,sample_rows_in_table_info=2)
+    # db 설정
+
+    # template
+    template = """Given an input question, first create a syntactically correct {dialect} query to run , ORDER BY must appear before the LIMIT clause , then look at the results of the query and return the answer. Unless the user specifies in his question a specific number of examples he wishes to obtain, always limit your query to at most {top_k} results. You can order the results by a relevant column to return the most interesting examples in the database.
+
+    Never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
+
+    Pay attention to use only the column names that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
+
+    Question: "Question here"
+    SQLQuery: "SELECT product_name, comment"
+    SQLResult: "Result of the SQLQuery"
+    Answer: "Final answer here"
+    
+    답변 형식은 반드시 comment와 함께 아래와 같이 출력해줘.
+    you only answer in korean.
+    
+    아침 : <<product_name>> <br>추천이유 : <<comment>> <br><br>점심 : <<product_name>> <br>추천이유 : <<comment>> <br><br>저녁 : <<product_name>> <br>추천이유 : <<comment>>
+    
+    Only use the following tables:
+    {table_info}
+
+    If someone asks for the table product or meals, they really mean the meal table.
+    Question: {input}
+    """
+
+    prompt = PromptTemplate(
+        input_variables=["input", "table_info", "dialect", "top_k"],
+        template=template,
+    )
+    # template
+    
+    db_chain = SQLDatabaseChain.from_llm(llm=chat_model, db=db, prompt=prompt, verbose=True, top_k=3)
+    result = db_chain.run(input)
+    
+    return result
+
 
 def getHealthRecoFood(input):
 
@@ -178,58 +218,65 @@ tools = [
     ),
     Tool(
         name="상품추천",
-        func=getHealthRecoFood,
+        func=getHealthRecoFoodSql,
         description="음식추천과 관련된 내용일 경우 이 툴만 사용해서 답을 줘, '식단추천' 혹은 '식단 추천' 혹은 '상품추천' 혹은 '상품 추천'와 같은 문구가 들어갈 경우에 사용",
         return_direct=True,
     ),
 ]
 
+template = '''\
+    you must have to answer in korean.  \
+    '''
 
+prompt = PromptTemplate(
+    input_variables=[],
+    template=template,
+)
 
 # Construct the react agent type.
-# health_agent = initialize_agent(
-#     # tools,
-#     tools=tools,
-#     prompt=prompt,
-#     llm=chat_model,
-#     agent="zero-shot-react-description",
-#     verbose=True,
-#     # stop=['\nObservation:'],
+health_agent = initialize_agent(
+    # tools,
+    tools=tools,
+    prompt=prompt,
+    llm=chat_model,
+    agent="zero-shot-react-description",
+    verbose=True,
+    # stop=['\nObservation:'],
+)
+
+
+# # new action Start
+# prefix = """Have a conversation with a human, You must have to answer in Korean. You have access to the following tools:"""
+# suffix = """Begin!"
+
+# {chat_history}
+# Question: {input}
+# {agent_scratchpad}"""
+
+# prompt = ZeroShotAgent.create_prompt(
+#     tools,
+#     prefix=prefix,
+#     suffix=suffix,
+#     input_variables=["input", "chat_history", "agent_scratchpad"],
 # )
 
 
-# new action Start
-prefix = """Have a conversation with a human, answering the following questions as best you can. You must have to answer in Korean. You have access to the following tools:"""
-suffix = """Begin!"
+# # llm_chain = LLMChain(chat_model, prompt=prompt)
 
-{chat_history}
-Question: {input}
-{agent_scratchpad}"""
+# # run the agent
+# message_history = RedisChatMessageHistory(
+#     url="redis://localhost:6379/0", ttl=600, session_id="my-session"
+# )
 
-prompt = ZeroShotAgent.create_prompt(
-    tools,
-    prefix=prefix,
-    suffix=suffix,
-    input_variables=["input", "chat_history", "agent_scratchpad"],
-)
+# memory = ConversationBufferMemory(
+#     memory_key="chat_history", chat_memory=message_history, k=2
+# )
 
-
-# llm_chain = LLMChain(chat_model, prompt=prompt)
-
-# run the agent
-message_history = RedisChatMessageHistory(
-    url="redis://localhost:6379/0", ttl=600, session_id="my-session"
-)
-
-memory = ConversationBufferMemory(
-    memory_key="chat_history", chat_memory=message_history
-)
-
-llm_chain = LLMChain(llm=chat_model, prompt=prompt)
-agent = ZeroShotAgent(llm_chain=llm_chain, tools=tools, verbose=True)
-agent_chain = AgentExecutor.from_agent_and_tools(
-    agent=agent, tools=tools, verbose=True, memory=memory
-)
+# llm_chain = LLMChain(llm=chat_model, prompt=prompt)
+# agent = ZeroShotAgent(llm_chain=llm_chain, tools=tools, verbose=True)
+# agent_chain = AgentExecutor.from_agent_and_tools(
+#     agent=agent, tools=tools, verbose=True, memory=memory
+# )
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:

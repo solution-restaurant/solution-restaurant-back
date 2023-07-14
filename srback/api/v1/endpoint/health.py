@@ -8,10 +8,8 @@ from srback.core.config import settings
 from pydantic import BaseModel
 
 from srback.db.models import users
-from srback.db.models import meals
+from srback.db.models import alarms
 from srback.db.db import conn
-from srback.db.user import User
-from srback.db.meal import Meal
 
 from srback.db.db import SessionLocal
 from sqlalchemy import update
@@ -34,7 +32,7 @@ class LoginModel(BaseModel):
     alarmTime: str
     alarmState: str
 
-class MealModel(BaseModel):
+class AlarmModel(BaseModel):
     userName: str
     userRecoMeal: str
     userResOfAi: str
@@ -110,9 +108,9 @@ def user_login(data : LoginModel):
 #         session.close()
 
 @router.post("/getAlarmRecent")
-def user_getAlarmRecent(data : MealModel):
+def user_getAlarmRecent(data : AlarmModel):
   print("receive message : " + data.userName)
-  example = conn.execute(meals.select().where(meals.c.userName == data.userName, meals.c.chkEat == 'BEFORE').order_by(meals.c.crtTime)).first()
+  example = conn.execute(alarms.select().where(alarms.c.userName == data.userName, alarms.c.chkEat == 'BEFORE').order_by(alarms.c.crtTime)).first()
   print("example : " + str(example))
   conn.commit()
 
@@ -128,9 +126,9 @@ def user_getAlarmRecent(data : MealModel):
   return data
 
 @router.post("/getAlarmAll")
-def user_getAlarmAll(data : MealModel):
+def user_getAlarmAll(data : AlarmModel):
   print("alarm  receive message : " + data.userName)
-  example = conn.execute(meals.select().where(meals.c.userName == data.userName)).fetchall()
+  example = conn.execute(alarms.select().where(alarms.c.userName == data.userName)).fetchall()
   conn.commit()
   print("alarm example : " + str(example))
   if example is []:
@@ -170,6 +168,7 @@ def receive_message(data : Model):
   # example = conn.execute(users.select()).fetchall()
   data.userName='영양코칭AI'
   data.content =lcmain.health_agents(data.content)
+  data.content = data.content.replace('\n', '<br>')
   # data.content= lcmain.custom_health_agent(data.content)
   print(data)
   return data
