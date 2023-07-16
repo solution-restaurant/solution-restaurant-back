@@ -25,6 +25,7 @@ alarms = Table('alarm', meta,
               Column('alarmTime', String(255)),
               Column('crtTime', String(255)),
               Column('chgTime', String(255)),
+              Column('recoComment', String(2000)),
               )
 
 
