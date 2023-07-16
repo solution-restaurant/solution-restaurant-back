@@ -166,11 +166,52 @@ def user_getAlarmAll(data : AlarmModel):
 def receive_message(data : Model):
   print("receive message : " + data.content +" from : " +data.userName)
   # example = conn.execute(users.select()).fetchall()
+  
+  data.content = lcmain.health_agents(data.content)
+  try:
+    # KJT
+    json_dict = json.loads(data.content)
+    print("json 로드 가능 상품 추천")
+    print(json_dict)
+    data.content = json_dict.get("content") # 응답 메시지
+    # 데이터 순회 및 insert
+    
+    for food in json_dict.get("foodList"):
+      # b를 수행합니다.
+      print(food)
+      # food 순회 하며 insert
+      # mealForDay '아침', '점심', 저녁
+      mealForDay = food.get("mealForDay")
+      if (mealForDay == "아침"):
+        mealForDay = "M"
+      elif(mealForDay == "점심"):
+        mealForDay = "L"
+      elif(mealForDay == "저녁"):
+        mealForDay = "D"
+      else:
+        mealForDay ="M"
+      # productName '상품 이름'
+      # 이미지 추가
+      example = conn.execute(alarms.insert().values(
+        userName=data.userName
+        ,alarmState="N"
+        ,recoMeal=food.get("productName")
+        ,MLD=mealForDay
+        ,recoComment=food.get("comment")))
+      
+    conn.commit()
+      
+    
+  except json.JSONDecodeError:
+    print("json 로드 불가능 메시지 바로 반환")
+    print(data.content)
+    # a를 수행합니다.
+  
+  
+  data.content = data.content.replace('\n', '<br>') # 메시지 html형으로 변환
   data.userName='영양코칭AI'
-  data.content =lcmain.health_agents(data.content)
-  data.content = data.content.replace('\n', '<br>')
-  # data.content= lcmain.custom_health_agent(data.content)
-  print(data)
+  
+  # print("send result : " + str(data))
   return data
 
 # @router.post("/send")

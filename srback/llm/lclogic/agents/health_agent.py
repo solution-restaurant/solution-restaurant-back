@@ -12,6 +12,7 @@ from langchain.schema import (
 )
 # FILE_NAME = "pdf/greating_data_korean_new.csv"
 # not used End
+import json
 import sys
 import os
 from pathlib import Path
@@ -44,6 +45,12 @@ from langchain.prompts import (
     HumanMessagePromptTemplate
 )
 # prompt End
+# outputParser Start
+from langchain.output_parsers import PydanticOutputParser
+from pydantic import BaseModel, Field, validator
+from typing import List
+from langchain.output_parsers import PydanticOutputParser
+# outputParser End
 
 chat_model = ChatOpenAI(
     openai_api_key=os.getenv("OPEN_API_KEY"),
@@ -53,11 +60,29 @@ chat_model = ChatOpenAI(
 PERSIST_DIRECTORY = 'genChromaDB/db'
 PERSIST_DIRECTORY2 = 'genChromaDB/db2'
 
+
+class FoodInfo(BaseModel):
+    mealForDay: str = Field(description="morning or lunch or dinner used to answer the user's question.")
+    productName: str = Field(description="productName used to answer the user's question.")
+    comment: str = Field(description="comment used to answer the user's question.")
+
+class FoodList(BaseModel):
+    foodList: List[FoodInfo] = Field(description="list of Food")
+    content: str = Field(description="answer to the user's question.")
+    # You can add custom validation logic easily with Pydantic.
+    # @validator('setup')
+    # def question_ends_with_question_mark(cls, field):
+    #     if field[-1] != '?':
+    #         raise ValueError("Badly formed question!")
+    #     return field
+
+
 def getHealthRecoFoodSql(input):
     # db 설정
     db = SQLDatabase.from_uri(os.getenv("DB_PATH")
                             ,include_tables=['meal']
                             ,sample_rows_in_table_info=2)
+    
     # db 설정
 
     # template
@@ -74,6 +99,7 @@ def getHealthRecoFoodSql(input):
     
     답변 형식은 반드시 comment와 함께 아래와 같이 출력해줘.
     you only answer in korean.
+    {format_instructions}
     
     아침 : <<product_name>> <br>추천이유 : <<comment>> <br><br>점심 : <<product_name>> <br>추천이유 : <<comment>> <br><br>저녁 : <<product_name>> <br>추천이유 : <<comment>>
     
@@ -83,15 +109,30 @@ def getHealthRecoFoodSql(input):
     If someone asks for the table product or meals, they really mean the meal table.
     Question: {input}
     """
+    # outputParser
+    parser = PydanticOutputParser(pydantic_object=FoodList)    
+    # response_schemas = [
+    #     ResponseSchema(name="content", description="answer to the user's question."),
+    #     ResponseSchema(name="product_name", description="product_name used to answer the user's question."),
+    #     ResponseSchema(name="comment", description="comment used to answer the user's question.")
+    # ]
+    # output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
+    # format_instructions = output_parser.get_format_instructions()
 
     prompt = PromptTemplate(
         input_variables=["input", "table_info", "dialect", "top_k"],
         template=template,
+        partial_variables={"format_instructions": parser.get_format_instructions()}
     )
     # template
     
     db_chain = SQLDatabaseChain.from_llm(llm=chat_model, db=db, prompt=prompt, verbose=True, top_k=3)
     result = db_chain.run(input)
+    
+    print("dict start")
+    dict = json.loads(result)
+    print(dict)
+    print("dict end")
     
     return result
 
