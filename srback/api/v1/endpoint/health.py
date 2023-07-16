@@ -29,6 +29,8 @@ class JoinModel(BaseModel):
 class LoginModel(BaseModel):
     userName: str
     password: str
+    allergy: str
+    disease: str
     alarmTime: str
     alarmState: str
 
@@ -57,6 +59,8 @@ def user_login(data : LoginModel):
   print("receive message : " + data.userName +" from : " +data.password)
   example = conn.execute(users.select().where(users.c.name == data.userName, users.c.pw == data.password)).first()
   conn.commit()
+  data.allergy = example.allergy
+  data.disease = example.disease
   data.alarmTime = example.alarmTime
   data.alarmState = example.alarmState
   print("example : " + str(example))
@@ -77,7 +81,17 @@ def user_login(data : LoginModel):
 @router.post("/updateAlarmState")
 def user_login(data : LoginModel):
   print("receive message : " + data.userName +" from : " +data.password + " : " + data.alarmState)
-  example = conn.execute(users.update().where(users.c.name == data.userName).values(alarmState="TEST"))
+  example = conn.execute(users.update().where(users.c.name == data.userName).values(alarmState=data.alarmState))
+  conn.commit()
+  print("example : " + str(example))
+  if example is None:
+    data.userName='null'
+  return data
+
+@router.post("/updateUserInfo")
+def user_login(data : LoginModel):
+  print("receive message : " + data.userName +" from : " +data.password + " : " + data.alarmTime)
+  example = conn.execute(users.update().where(users.c.name == data.userName).values(allergy=data.allergy, disease=data.disease))
   conn.commit()
   print("example : " + str(example))
   if example is None:
@@ -138,11 +152,11 @@ def user_getAlarmAll(data : AlarmModel):
     # data.userMealInfo = str(example)
     print(data.userMealInfo)
     data.userName=data.userName
-    data.userRecoMeal= '1'
-    data.userResOfAi = '2'
-    data.userChkEat = '3'
-    data.userMLD = '4'
-    data.userAlarmImg = '5'
+    # data.userRecoMeal= '1'
+    # data.userResOfAi = '2'
+    # data.userChkEat = '3'
+    # data.userMLD = '4'
+    # data.userAlarmImg = '5'
     print(data.userName)
     # print the JSON data
     json_data_list = list()

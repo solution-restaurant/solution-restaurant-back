@@ -7,6 +7,8 @@ users = Table('user', meta,
               Column('pw', String(255)),
               Column('message', String(255)),
               Column('age', INTEGER()),
+              Column('allergy', String(32)),
+              Column('disease', String(32)),
               Column('alarmTime', String(32)),
               Column('alarmState', String(32)),
               )
