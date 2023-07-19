@@ -62,13 +62,14 @@ PERSIST_DIRECTORY2 = 'genChromaDB/db2'
 
 
 class FoodInfo(BaseModel):
-    mealForDay: str = Field(description="morning or lunch or dinner used to answer the user's question.")
+    # mealForDay: str = Field(description="morning or lunch or dinner Please use it")
     productName: str = Field(description="productName used to answer the user's question.")
-    comment: str = Field(description="comment used to answer the user's question.")
+    id: str = Field(description="product Id")
+    # comment: str = Field(description="comment used to answer the user's question.")
 
 class FoodList(BaseModel):
     foodList: List[FoodInfo] = Field(description="list of Food")
-    # content: str = Field(description="answer to the user's question.")
+    reviews: str = Field(description="why you recommended the product for user's question like a nutrition consultant")
     # You can add custom validation logic easily with Pydantic.
     # @validator('setup')
     # def question_ends_with_question_mark(cls, field):
@@ -76,7 +77,7 @@ class FoodList(BaseModel):
     #         raise ValueError("Badly formed question!")
     #     return field
 class RecoFoodInfo(BaseModel):
-    query: str = Field(description="human's allergy and disease")
+    input: str = Field(description="Tell me more about user's allergies, diseases, interests, and high and low calories user's want")
 
 
 def getHealthRecoFoodSql(input):
@@ -96,23 +97,28 @@ def getHealthRecoFoodSql(input):
     Pay attention to use only the column names that you can see in the schema description. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
 
     Question: "Question here"
-    SQLQuery: "SELECT product_name, comment"
+    SQLQuery: "SELECT product_name, id"
     SQLResult: "Result of the SQLQuery"
     Answer: "Final answer here"
     
     Question: "땅콩 알러지가 없는 상품에 대해서 추천해줘"
-    SQLQuery: SELECT product_name, comment WHERE peanut_allergy = N
+    SQLQuery: SELECT product_name, id WHERE peanut_allergy = 'N'
     
     Question: "당뇨인 사람에게 상품 추천해줘"
-    SQLQuery: SELECT product_name, comment FROM meal WHERE good_for_diabetes = Y
+    SQLQuery: SELECT product_name, id FROM meal WHERE good_for_diabetes = 'Y'
     
     Question: "나는 우유알러지가 있어 식단 추천해줘"
-    SQLQuery: SELECT product_name, comment FROM meal WHERE milk_allergy = N
+    SQLQuery: SELECT product_name, id FROM meal WHERE milk_allergy = 'N'
+    
+    Question: "복숭아 알러지 없고 암에 좋은 상품으로 추천 해줘"
+    SQLQuery: SELECT product_name, id FROM meal WHERE peach_allergy = 'N' AND good_for_cancer = 'Y'
+    
+    Question: "매운 음식 추천 해줘"
+    SQLQuery: SELECT product_name, id FROM meal WHERE comment like '%매운%' 
     
     답변 형식은 아래 형식으로 출력해줘.
     you only answer in korean.
     {format_instructions}
-    아침 : <<product_name>> <br>추천이유 : <<comment>> <br><br>점심 : <<product_name>> <br>추천이유 : <<comment>> <br><br>저녁 : <<product_name>> <br>추천이유 : <<comment>>
     
     Only use the following tables:
     {table_info}
