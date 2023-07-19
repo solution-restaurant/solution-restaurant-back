@@ -104,10 +104,10 @@ def getHealthRecoFoodSql(input):
     SQLQuery: SELECT product_name, comment WHERE peanut_allergy = N
     
     Question: "당뇨인 사람에게 상품 추천해줘"
-    SQLQuery: SELECT * FROM meal WHERE good_for_diabetes = Y
+    SQLQuery: SELECT product_name, comment FROM meal WHERE good_for_diabetes = Y
     
     Question: "나는 우유알러지가 있어 식단 추천해줘"
-    SQLQuery: SELECT * FROM meal WHERE milk_allergy = N
+    SQLQuery: SELECT product_name, comment FROM meal WHERE milk_allergy = N
     
     답변 형식은 아래 형식으로 출력해줘.
     you only answer in korean.
