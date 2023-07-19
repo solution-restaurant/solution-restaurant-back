@@ -26,6 +26,8 @@ alarms = Table('alarm', meta,
               Column('crtTime', String(255)),
               Column('chgTime', String(255)),
               Column('recoComment', String(2000)),
+              Column('goodFB', String(2000)),
+              Column('badFB', String(2000)),
               )
 
 

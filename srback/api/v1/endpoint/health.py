@@ -35,9 +35,12 @@ class LoginModel(BaseModel):
     alarmState: str
 
 class AlarmModel(BaseModel):
+    userMealId: str
     userName: str
     userRecoMeal: str
     userResOfAi: str
+    userGoodFB: str
+    userBadFB: str
     userChkEat: str
     userMLD: str
     userAlarmImg: str
@@ -121,6 +124,14 @@ def user_login(data : LoginModel):
 #     finally:
 #         session.close()
 
+@router.post("/removeMeal")
+def user_getAlarmRecent(data : AlarmModel):
+    print("receive message : " + data.userName)
+    example = conn.execute(alarms.delete().where(alarms.c.id == data.userMealId))
+    print("example : " + str(example))
+    conn.commit()
+    return data
+
 @router.post("/getAlarmRecent")
 def user_getAlarmRecent(data : AlarmModel):
   print("receive message : " + data.userName)
@@ -132,8 +143,11 @@ def user_getAlarmRecent(data : AlarmModel):
     data.userRecoMeal='null'
     return data
   else:
+    data.userMealId = example.id
     data.userRecoMeal = example.recoMeal
     data.userResOfAi = example.resOfAi
+    data.userGoodFB = example.goodFB
+    data.userBadFB = example.badFB
     data.userChkEat = example.chkEat
     data.userMLD = example.MLD
     data.userAlarmImg = example.alarmImg
@@ -160,20 +174,45 @@ def user_getAlarmAll(data : AlarmModel):
     print(data.userName)
     # print the JSON data
     json_data_list = list()
-    id = 0
+    count = 0
     for row in example:
       data2 = {}
-      data2['id'] = id
+      data2['count'] = count
+      data2['id'] = row.id
       data2['title'] = row.recoMeal
-      data2['feedback'] = row.resOfAi
-      data2['checked'] = 'false'
+      data2['goodFB'] = row.goodFB
+      data2['badFB'] = row.badFB
+      data2['chkEat'] = row.chkEat
+      data2['MLD'] = row.MLD
+      data2['checked'] = False
       # json_data = json.dumps(data2, ensure_ascii=False)
       # print(json_data) #this is what the script returns 
       json_data_list.append(data2)
       # print("??:"+ " "+ str(json_data_list))
-      id += 1
+      count += 1
       # print("??:"+ str(row) + " "+ row.MLD)
     data.userMealInfo = json_data_list
+  return data
+
+@router.post("/updateAlarmChkEatY")
+def user_login(data : AlarmModel):
+  print("receive message : " + data.userName + " id : " + data.userMealId )
+  example = conn.execute(alarms.update().where(alarms.c.id == data.userMealId ).values(chkEat="Y"))
+  conn.commit()
+  print("example : " + str(example))
+  if example is None:
+    data.userName='null'
+  return data
+
+
+@router.post("/updateAlarmChkEatN")
+def user_login(data : AlarmModel):
+  print("receive message : " + data.userName + " id : " + data.userMealId )
+  example = conn.execute(alarms.update().where(alarms.c.id == data.userMealId ).values(chkEat="N"))
+  conn.commit()
+  print("example : " + str(example))
+  if example is None:
+    data.userName='null'
   return data
 
 @router.post("/send")
