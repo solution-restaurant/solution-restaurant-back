@@ -68,13 +68,15 @@ class FoodInfo(BaseModel):
 
 class FoodList(BaseModel):
     foodList: List[FoodInfo] = Field(description="list of Food")
-    content: str = Field(description="answer to the user's question.")
+    # content: str = Field(description="answer to the user's question.")
     # You can add custom validation logic easily with Pydantic.
     # @validator('setup')
     # def question_ends_with_question_mark(cls, field):
     #     if field[-1] != '?':
     #         raise ValueError("Badly formed question!")
     #     return field
+class RecoFoodInfo(BaseModel):
+    query: str = Field(description="human's allergy and disease")
 
 
 def getHealthRecoFoodSql(input):
@@ -86,7 +88,8 @@ def getHealthRecoFoodSql(input):
     # db 설정
 
     # template
-    template = """Given an input question, first create a syntactically correct {dialect} query to run , ORDER BY must appear before the LIMIT clause , then look at the results of the query and return the answer. Unless the user specifies in his question a specific number of examples he wishes to obtain, always limit your query to at most {top_k} results. You can order the results by a relevant column to return the most interesting examples in the database.
+    template = """Given an input question, first create a syntactically correct MySQL query to run , ORDER BY must appear before the LIMIT clause , then look at the results of the query and return the answer.
+    Unless the user specifies in his question a specific number of examples he wishes to obtain, always limit your query to at most {top_k} results. You can order the results by a relevant column to return the most interesting examples in the database.
 
     Never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
 
@@ -97,10 +100,18 @@ def getHealthRecoFoodSql(input):
     SQLResult: "Result of the SQLQuery"
     Answer: "Final answer here"
     
-    답변 형식은 반드시 comment와 함께 아래와 같이 출력해줘.
+    Question: "땅콩 알러지가 없는 상품에 대해서 추천해줘"
+    SQLQuery: SELECT product_name, comment WHERE peanut_allergy = N
+    
+    Question: "당뇨인 사람에게 상품 추천해줘"
+    SQLQuery: SELECT * FROM meal WHERE good_for_diabetes = Y
+    
+    Question: "나는 우유알러지가 있어 식단 추천해줘"
+    SQLQuery: SELECT * FROM meal WHERE milk_allergy = N
+    
+    답변 형식은 아래 형식으로 출력해줘.
     you only answer in korean.
     {format_instructions}
-    
     아침 : <<product_name>> <br>추천이유 : <<comment>> <br><br>점심 : <<product_name>> <br>추천이유 : <<comment>> <br><br>저녁 : <<product_name>> <br>추천이유 : <<comment>>
     
     Only use the following tables:
@@ -120,19 +131,16 @@ def getHealthRecoFoodSql(input):
     # format_instructions = output_parser.get_format_instructions()
 
     prompt = PromptTemplate(
-        input_variables=["input", "table_info", "dialect", "top_k"],
+        input_variables=["input", "table_info", "top_k"],
         template=template,
         partial_variables={"format_instructions": parser.get_format_instructions()}
     )
     # template
     
-    db_chain = SQLDatabaseChain.from_llm(llm=chat_model, db=db, prompt=prompt, verbose=True, top_k=3)
+    db_chain = SQLDatabaseChain.from_llm(
+        llm=chat_model, db=db, prompt=prompt, verbose=True, top_k=3
+    )
     result = db_chain.run(input)
-    
-    print("dict start")
-    dict = json.loads(result)
-    print(dict)
-    print("dict end")
     
     return result
 
@@ -246,27 +254,28 @@ def getHealthCoachingInfo(input):
     return chain.run(input)
 
 tools = [
-    Tool(
+    Tool.from_function(
         name="영양학정보",
         func=getNutrientInfo,
         description="Use it in a normal conversation, 구체적인 정보가 없을 경우 다음 tool로 넘어가라",
         return_direct=True,
     ),
-    Tool(
+    Tool.from_function(
         name="영양코칭",
         func=getHealthCoachingInfo,
         description="Use it If you don't have the appropriate tool, use it last",
     ),
-    Tool(
+    Tool.from_function(
         name="상품추천",
         func=getHealthRecoFoodSql,
-        description="음식추천과 관련된 내용일 경우 이 툴만 사용해서 답을 줘, '식단추천' 혹은 '식단 추천' 혹은 '상품추천' 혹은 '상품 추천'와 같은 문구가 들어갈 경우에 사용",
+        description="use it to plan or recommend food, diet, or meals. Use this tool first for diet and product recommendations",
+        args_schema=RecoFoodInfo,
         return_direct=True,
     ),
 ]
 
 template = '''\
-    you must have to answer in korean.  \
+    you must have to answer in korean.\
     '''
 
 prompt = PromptTemplate(

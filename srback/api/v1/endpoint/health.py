@@ -185,40 +185,46 @@ def receive_message(data : Model):
   try:
     # KJT
     json_dict = json.loads(data.content)
-    print("json 로드 가능 상품 추천")
+    print("json 로드 가능 상품 추천 Start")
     print(json_dict)
-    data.content = json_dict.get("content") # 응답 메시지
+    print("json 로드 가능 상품 추천 End")
+    data.content = ""
+    # data.content = json_dict.get("content") # 응답 메시지
     # 데이터 순회 및 insert
     
     for food in json_dict.get("foodList"):
-      # b를 수행합니다.
-      print(food)
       # food 순회 하며 insert
       # mealForDay '아침', '점심', 저녁
+      meal_for_day = ""
       mealForDay = food.get("mealForDay")
+      product_name = food.get("productName")
+      comment = food.get("comment")
+      
       if (mealForDay == "아침"):
-        mealForDay = "M"
+        meal_for_day = "M"
       elif(mealForDay == "점심"):
-        mealForDay = "L"
+        meal_for_day = "L"
       elif(mealForDay == "저녁"):
-        mealForDay = "D"
+        meal_for_day = "D"
       else:
-        mealForDay ="M"
+        meal_for_day ="M"
       # productName '상품 이름'
       # 이미지 추가
+      data.content += (mealForDay + " : " + product_name + "<br>추천 이유 : " + comment + "<br><br>")
       example = conn.execute(alarms.insert().values(
         userName=data.userName
         ,alarmState="N"
         ,recoMeal=food.get("productName")
-        ,MLD=mealForDay
+        ,MLD=meal_for_day
         ,recoComment=food.get("comment")))
       
     conn.commit()
       
     
-  except json.JSONDecodeError:
-    print("json 로드 불가능 메시지 바로 반환")
+  except :
+    print("json 로드 불가능 메시지 바로 반환 Start")
     print(data.content)
+    print("json 로드 불가능 메시지 바로 반환 End")
     # a를 수행합니다.
   
   
