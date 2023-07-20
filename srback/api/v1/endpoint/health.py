@@ -9,10 +9,11 @@ from pydantic import BaseModel
 
 from srback.db.models import users
 from srback.db.models import alarms
+from srback.db.models import meals
 from srback.db.db import conn
 
 from srback.db.db import SessionLocal
-from sqlalchemy import update
+from sqlalchemy import update, select
 
 router = APIRouter()
 
@@ -222,45 +223,16 @@ def receive_message(data : Model):
   
   data.content = lcmain.health_agents(data.content)
   try:
-    # KJT
+    # KJT 이곳에 들어오면 상품 추천이라고 간주
     json_dict = json.loads(data.content)
     print("json 로드 가능 상품 추천 Start")
-    print(json_dict)
-    print("json 로드 가능 상품 추천 End")
-    data.content = ""
     # data.content = json_dict.get("content") # 응답 메시지
-    # 데이터 순회 및 insert
+    # food 순회 하며 content 생성
+    data.content = create_html_contents_from_db(data.userName, json_dict["foodList"], json_dict["reviews"])
+    print("json 로드 가능 상품 추천 End")
     
-    for food in json_dict.get("foodList"):
-      # food 순회 하며 insert
-      # mealForDay '아침', '점심', 저녁
-      meal_for_day = ""
-      mealForDay = food.get("mealForDay")
-      product_name = food.get("productName")
-      comment = food.get("comment")
-      
-      if (mealForDay == "아침"):
-        meal_for_day = "M"
-      elif(mealForDay == "점심"):
-        meal_for_day = "L"
-      elif(mealForDay == "저녁"):
-        meal_for_day = "D"
-      else:
-        meal_for_day ="M"
-      # productName '상품 이름'
-      # 이미지 추가
-      data.content += (mealForDay + " : " + product_name + "<br>추천 이유 : " + comment + "<br><br>")
-      example = conn.execute(alarms.insert().values(
-        userName=data.userName
-        ,alarmState="N"
-        ,recoMeal=food.get("productName")
-        ,MLD=meal_for_day
-        ,recoComment=food.get("comment")))
-      
-    conn.commit()
-      
-    
-  except :
+  except Exception as e:
+    print(f"Error: {e}")
     print("json 로드 불가능 메시지 바로 반환 Start")
     print(data.content)
     print("json 로드 불가능 메시지 바로 반환 End")
@@ -289,3 +261,178 @@ def read_root():
     return {"Hello world"}
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 함수 분리 KJT Start
+
+def create_html_contents_from_db(userName, foodList, reviews):
+  
+    # 식사 시간 리스트
+    meal_for_day = ['아침', '점심', '저녁']
+
+    # 결과를 저장할 빈 문자열
+    result = ''
+
+    # foodList를 순회하면서 HTML 내용 생성
+    for i, food in enumerate(foodList):
+        # id에 해당하는 행을 meal 테이블에서 조회
+        stmt = select(
+            meals.c.product_name, 
+            meals.c.comment, 
+            meals.c.calorie, 
+            meals.c.img_url
+        ).where(meals.c.id == food['id'])
+        
+        # 쿼리 실행
+        queryResult = conn.execute(stmt)
+        row = queryResult.fetchone()
+
+        # 결과 받기 (여기서는 샘플 데이터 사용)
+
+        if row is not None:
+            # HTML 생성
+            html_content = create_html_content(
+                meal_for_day[i % len(meal_for_day)], 
+                row.product_name, 
+                row.comment, 
+                row.calorie, 
+                row.img_url, 
+                reviews if i == len(foodList) - 1 else ""  # 마지막 아이템에만 reviews 추가
+            )
+            # 식단 기록에 추가 데이터 순회 및 insert Start
+            example = conn.execute(alarms.insert().values(
+              userName=userName
+              ,alarmState="N"
+              ,recoMeal=row.product_name
+              ,MLD=meal_for_day[i % len(meal_for_day)]
+              ,alarmImg=row.img_url
+              ,recoComment=row.comment,
+            ))
+            # 식단 기록에 추가 데이터 순회 및 insert End
+            
+            result += html_content
+    conn.commit()
+    
+    # 결과 반환
+    return result
+      
+
+# create_html_content 함수 (여기서는 샘플 데이터를 사용합니다)
+# 1차
+# def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+#     html_content = f'''
+#     {meal_for_day} <br>
+#     <img src="{img_url}"></img><br>
+#     상품 이름 : {product_name}<br>
+#     추천 이유 : {comment}<br>
+#     칼로리 : {calorie} kcal <br>
+#     <br><br>
+#     '''
+#     if reviews:
+#         html_content += f'<br><br>{reviews}'
+#     return html_content
+# 2차
+# def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+#     html_content = f'''
+#     <div style="border:1px solid black; padding:20px; margin:10px">
+#         <h2>{meal_for_day}</h2>
+#         <img src="{img_url}" width="300px" height="200px">
+#         <h3>상품 이름 : {product_name}</h3>
+#         <p>추천 이유 : {comment}</p>
+#         <p>칼로리 : {calorie} kcal </p>
+#     </div>
+#     '''
+#     if reviews:
+#         html_content += f'<div style="padding:20px; margin:10px"><h3>리뷰:</h3><p>{reviews}</p></div>'
+#     return html_content
+# 3차
+# def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+#     html_content = f'''
+#     <div style="border:1px solid black; padding:20px; margin:10px; max-width:100%">
+#         <h2>{meal_for_day}</h2>
+#         <img src="{img_url}" style="max-width:100%; height:auto">
+#         <h3>상품 이름 : {product_name}</h3>
+#         <p>추천 이유 : {comment}</p>
+#         <p>칼로리 : {calorie} kcal </p>
+#     </div>
+#     '''
+#     if reviews:
+#         html_content += f'<div style="padding:20px; margin:10px; max-width:100%"><h3>리뷰:</h3><p>{reviews}</p></div>'
+#     return html_content
+# 4차
+# def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+#     html_content = f'''
+#     <div style="border:1px solid #f2f2f2; padding:20px; margin:10px; max-width:100%; font-family: Arial, sans-serif;">
+#         <h2 style="color: #4CAF50;">{meal_for_day}</h2>
+#         <div style="display: flex; align-items: center;">
+#             <img src="{img_url}" style="max-width:30%; height:auto; margin-right: 20px;">
+#             <div>
+#                 <h3 style="margin-bottom: 10px;">상품 이름 : {product_name}</h3>
+#                 <p style="margin-bottom: 10px;">추천 이유 : {comment}</p>
+#                 <p style="color: #FF5722;">칼로리 : {calorie} kcal </p>
+#             </div>
+#         </div>
+#     </div>
+#     '''
+#     if reviews:
+#         html_content += f'<div style="border:1px solid #f2f2f2; padding:20px; margin:10px; max-width:100%; font-family: Arial, sans-serif;"><h3 style="color: #4CAF50;">리뷰:</h3><p>{reviews}</p></div>'
+#     return html_content
+
+# 5차 
+# def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+#     html_content = f'''
+#     <div style="border:1px solid #f2f2f2; padding:10px; margin:5px; max-width:100%; font-family: Arial, sans-serif;">
+#         <h2 style="color: #4CAF50; margin-bottom: 10px;">{meal_for_day}</h2>
+#         <div style="display: flex; align-items: flex-start;">
+#             <img src="{img_url}" style="max-width:30%; height:auto; margin-right: 20px;">
+#             <div>
+#                 <h3 style="margin-bottom: 10px;">{product_name}</h3>
+#                 <p style="margin-bottom: 10px;">{comment}</p>
+#                 <p style="color: #FF5722;">{calorie} kcal</p>
+#             </div>
+#         </div>
+#     </div>
+#     '''
+#     if reviews:
+#         html_content += f'<div style="border:1px solid #f2f2f2; padding:10px; margin:5px; max-width:100%; font-family: Arial, sans-serif;"><h3 style="color: #4CAF50; margin-bottom: 10px;">리뷰:</h3><p>{reviews}</p></div>'
+#     return html_content
+def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+    html_content = f'''
+    <div style="display: inline-block; max-width: 100%; margin: 10px; text-align: center; font-family: Arial, sans-serif;">
+        <div style="border: 1px solid #ccc; padding: 5px;">
+            <img src="{img_url}" alt="Product Image" style="max-width: 100%; height: auto;">
+        </div>
+        <h3>{meal_for_day}</h3>
+        <h4>{product_name}</h4>
+        <p>{comment}</p>
+        <p>칼로리: {calorie} kcal</p>
+    </div>
+    '''
+    if reviews:
+        html_content += f'<div>{reviews}</div>'
+    return html_content
+
+# 함수 호출
+
+
+# 함수 분리 KJT End
