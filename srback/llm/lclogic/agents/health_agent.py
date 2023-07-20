@@ -59,6 +59,11 @@ chat_model = ChatOpenAI(
     model_name="gpt-3.5-turbo",
     temperature=0
 )
+chat_FeedBack_model = ChatOpenAI(
+    openai_api_key=os.getenv("OPEN_API_KEY"),
+    model_name="gpt-3.5-turbo",
+    temperature=0.3
+)
 PERSIST_DIRECTORY = 'genChromaDB/db'
 PERSIST_DIRECTORY2 = 'genChromaDB/db2'
 PERSIST_DIRECTORY3 = 'genChromaDB/db3'
@@ -93,7 +98,7 @@ def getHealthRecoFoodSql(input):
 
     # template
     template = """Given an input question, first create a syntactically correct MySQL query to run , ORDER BY must appear before the LIMIT clause , then look at the results of the query and return the answer.
-    Unless the user specifies in his question a specific number of examples he wishes to obtain, always limit your query to at most {top_k} results. You can order the results by a relevant column to return the most interesting examples in the database.
+    Unless the user specifies in his question a specific number of examples he wishes to obtain, always limit your query to at most {top_k} results. You can order the results by a relevant column to return the input or RAND() in the database.
 
     Never query for all the columns from a specific table, only ask for a the few relevant columns given the question.
 
@@ -366,6 +371,38 @@ health_agent = initialize_agent(
 # agent_chain = AgentExecutor.from_agent_and_tools(
 #     agent=agent, tools=tools, verbose=True, memory=memory
 # )
+
+
+# user's already ate this food.
+#         Compliment me for eating well and respond very simply to the advantages of eating this food{input}.
+#         you only answer in korean.
+
+def getGoodFb(input):
+    template ="""
+        user's already ate this food. 
+        Compliment me for eating well and respond to the nutritional benefit of eating this food {input}.
+        Answer in a short and simple way within 150 characters like a nutrition counselor.
+        you only answer in korean.
+        """
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template=template,
+    )
+    chain = LLMChain(llm=chat_FeedBack_model, prompt=prompt)
+    return chain.run(input)
+
+def getbadFb(input):
+    template ="""
+        express your regret that user didn't eat this food, and at the end, recommend that you try it next time because of the nutritional benefits of this food {input} 
+        Answer in a short and simple way within 200 characters like a nutrition counselor.
+        you only answer in korean.
+        """
+    prompt = PromptTemplate(
+        input_variables=["input"],
+        template=template,
+    )
+    chain = LLMChain(llm=chat_FeedBack_model, prompt=prompt)
+    return chain.run(input)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
