@@ -16,6 +16,8 @@ from srback.db.db import conn
 from srback.db.db import SessionLocal
 from sqlalchemy import update, select
 
+import srback.api.v1.endpoint.userProperties as globalUser
+
 router = APIRouter()
 
 #uvicorn main:app --reload
@@ -221,6 +223,13 @@ def user_login(data : AlarmModel):
 def receive_message(data : Model):
   print("receive message : " + data.content +" from : " +data.userName)
   # example = conn.execute(users.select()).fetchall()
+  globalUser.globalUserName = data.userName
+  example = conn.execute(users.select().where(users.c.name == data.userName)).first()
+  if example  is not None:
+    globalUser.globalUserAllegy = example.allergy
+    globalUser.globalUserDisease = example.disease
+    
+  conn.commit()
   
   data.content = lcmain.health_agents(data.content)
   try:
@@ -446,7 +455,15 @@ def create_html_content(id, meal_for_day, product_name, comment, calorie, img_ur
     </div>
     '''
     if reviews:
-        html_content += f'<div>{reviews}</div>'
+        html_content += f'''
+        <div text-align: center;>
+            <p>{reviews}</p>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <a href="#/admin/user" style="display: inline-block; flex: 1; color: black; background-color: #e8e8e8; text-align: center; padding: 10px; text-decoration: none; font-size: 14px; margin: 4px 2px; cursor: pointer; border-radius: 12px; max-width: 50%; box-sizing: border-box;">식습관<br>수정하기</a>
+            <a href="#/admin/table-list" style="display: inline-block; flex: 1; color: black; background-color: #e8e8e8; text-align: center; padding: 10px; text-decoration: none; font-size: 14px; margin: 4px 2px; cursor: pointer; border-radius: 12px; max-width: 50%; box-sizing: border-box;">추천 식단<br>보러가기</a>
+        </div>
+        '''
     return html_content
 # 함수 호출
 

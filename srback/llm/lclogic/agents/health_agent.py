@@ -54,6 +54,11 @@ from typing import List
 from langchain.output_parsers import PydanticOutputParser
 # outputParser End
 
+# global data Start
+import srback.api.v1.endpoint.userProperties as globalUser
+
+# global data End
+
 chat_model = ChatOpenAI(
     openai_api_key=os.getenv("OPEN_API_KEY"),
     model_name="gpt-3.5-turbo",
@@ -77,7 +82,7 @@ class FoodInfo(BaseModel):
 
 class FoodList(BaseModel):
     foodList: List[FoodInfo] = Field(description="list of Food")
-    reviews: str = Field(description="why you recommended the product for user's question like a nutrition consultant")
+    reviews: str = Field(description="You must have to answer by writing Korean only. why you recommended the product for user's question like a nutrition consultant.")
     # You can add custom validation logic easily with Pydantic.
     # @validator('setup')
     # def question_ends_with_question_mark(cls, field):
@@ -94,6 +99,30 @@ def getHealthRecoFoodSql(input):
                             ,include_tables=['meal']
                             ,sample_rows_in_table_info=2)
     
+    print("\nglobalUserName : " + globalUser.globalUserName)
+    print("allergy : " + globalUser.globalUserAllegy)
+    print("diease : " + globalUser.globalUserDisease)
+    
+    # 유저 기본 값 문구 세팅
+    if(input == 'None'):
+        print("기본 추천")
+        allergy = find_name(globalUser.globalUserAllegy, swapped_allergy_list)
+        disease = find_name(globalUser.globalUserDisease, swapped_disease_list)
+        if(allergy == 'NONE' and disease == 'NONE'):
+            input = "기본 식습관 정보가 저장되어 있지 않아. 무작위로 상품을 추천 해 보았습니다."
+        else:
+            input = '고객님의 기본 식습관 정보를 바탕으로 '
+            if(allergy != 'NONE'):
+                if(disease != 'NONE'):
+                    input += allergy + "가 없고 " + disease + "에 좋은 상품"
+                else:
+                    input += allergy + "가 없는 상품 "
+              
+            elif(disease != 'NONE'):
+                input += disease + "에 좋은 상품"
+            input += "을 추천 해 보았습니다."
+    
+    print(input)
     # db 설정
 
     # template
@@ -127,6 +156,7 @@ def getHealthRecoFoodSql(input):
     답변 형식은 아래 형식으로 출력해줘.
     you only answer in korean.
     {format_instructions}
+    
     
     Only use the following tables:
     {table_info}
@@ -416,3 +446,39 @@ if __name__ == '__main__':
         print('agent that answers questions using Weather and Datetime custom tools')
         print('usage: py tools_agent.py <question sentence>')
         print('example: py tools_agent.py what time is it?')
+        
+        
+        
+# Define the lists
+allergyList = [
+    { "name": "없음", "value": "NONE" },
+    { "name": "우유 알러지", "value": "milk_allergy" },
+    { "name": "계란 알러지", "value": "egg_allergy" },
+    { "name": "땅콩 알러지", "value": "peanut_allergy" },
+    { "name": "조개 알러지", "value": "shellfish_allergy" },
+    { "name": "밀가루 알러지", "value": "gluten_allergy" },
+    { "name": "새우 알러지", "value": "shrimp_allergy" },
+    { "name": "복숭아 알러지", "value": "peach_allergy" },
+    { "name": "토마토 알러지", "value": "tomato_allergy" },
+]
+
+diseaseList = [
+    { "name": "없음", "value": "NONE" },
+    { "name": "고혈압", "value": "good_for_hypertension" },
+    { "name": "당뇨병", "value": "good_for_diabetes" },
+    { "name": "심장질환", "value": "good_for_heart_disease" },
+    { "name": "뇌졸중", "value": "good_for_stroke" },
+    { "name": "암", "value": "good_for_cancer" },
+    { "name": "간질환", "value": "good_for_liver_disease" },
+    { "name": "폐질환", "value": "good_for_lung_disease" },
+    { "name": "비만", "value": "good_for_obesity_disease" },
+]
+
+# Swap the name and value
+swapped_allergy_list = {item['value']: item['name'] for item in allergyList}
+swapped_disease_list = {item['value']: item['name'] for item in diseaseList}
+
+swapped_allergy_list, swapped_disease_list
+
+def find_name(value, dictionary):
+    return dictionary.get(value, "NONE")
