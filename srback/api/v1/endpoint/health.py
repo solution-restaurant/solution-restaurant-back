@@ -297,6 +297,7 @@ def create_html_contents_from_db(userName, foodList, reviews):
     for i, food in enumerate(foodList):
         # id에 해당하는 행을 meal 테이블에서 조회
         stmt = select(
+            meals.c.id,
             meals.c.product_name, 
             meals.c.comment, 
             meals.c.calorie, 
@@ -312,6 +313,7 @@ def create_html_contents_from_db(userName, foodList, reviews):
         if row is not None:
             # HTML 생성
             html_content = create_html_content(
+                row.id,
                 meal_for_day[i % len(meal_for_day)], 
                 row.product_name, 
                 row.comment, 
@@ -416,11 +418,14 @@ def create_html_contents_from_db(userName, foodList, reviews):
 #     if reviews:
 #         html_content += f'<div style="border:1px solid #f2f2f2; padding:10px; margin:5px; max-width:100%; font-family: Arial, sans-serif;"><h3 style="color: #4CAF50; margin-bottom: 10px;">리뷰:</h3><p>{reviews}</p></div>'
 #     return html_content
-def create_html_content(meal_for_day, product_name, comment, calorie, img_url, reviews):
+# 최종 
+def create_html_content(id, meal_for_day, product_name, comment, calorie, img_url, reviews):
     html_content = f'''
     <div style="display: inline-block; max-width: 100%; margin: 10px; text-align: center; font-family: Arial, sans-serif;">
         <div style="border: 1px solid #ccc; padding: 5px;">
-            <img src="{img_url}" alt="Product Image" style="max-width: 100%; height: auto;">
+            <a href="https://www.greating.co.kr/market/marketDetail?itemId={id}" target="_blank" onclick="window.open(this.href, 'targetWindow', 'toolbar=no, location=no, status=no, menubar=no, scrollbars=yes, resizable=yes, width=600, height=600'); return false;">
+                <img src="{img_url}" alt="Product Image" style="max-width: 100%; height: auto;">
+            </a>
         </div>
         <h3>{meal_for_day}</h3>
         <h4>{product_name}</h4>
@@ -431,7 +436,6 @@ def create_html_content(meal_for_day, product_name, comment, calorie, img_url, r
     if reviews:
         html_content += f'<div>{reviews}</div>'
     return html_content
-
 # 함수 호출
 
 
