@@ -1,0 +1,4 @@
+globalUserName=''
+globalUserAllegy=''
+globalUserDisease=''
+globalUserCalorie=''
