@@ -1,6 +1,7 @@
 from typing import Any, List, Union
 from fastapi import APIRouter, Depends, HTTPException
 from srback.llm.lclogic import lcmain
+from srback.llm.lclogic.agents.health_agent import getGoodFb, getbadFb
 
 import json
 import urllib.request
@@ -223,8 +224,8 @@ def receive_message(data : Model):
   
   data.content = lcmain.health_agents(data.content)
   try:
-    # KJT 이곳에 들어오면 상품 추천이라고 간주
     json_dict = json.loads(data.content)
+    # KJT 위에서 에러 안나면 상품 추천이라고 간주
     print("json 로드 가능 상품 추천 Start")
     # data.content = json_dict.get("content") # 응답 메시지
     # food 순회 하며 content 생성
@@ -311,6 +312,12 @@ def create_html_contents_from_db(userName, foodList, reviews):
         # 결과 받기 (여기서는 샘플 데이터 사용)
 
         if row is not None:
+            # comment 에 대하여 goodChat, badChat 사용해서 output 으로 goodFb, badFb 선택
+            goodFb = getGoodFb(row.comment)
+            badFb = getbadFb(row.comment)
+            
+            print("장점 : " + goodFb + "\n" + "단점 : " + badFb)
+
             # HTML 생성
             html_content = create_html_content(
                 row.id,
@@ -322,15 +329,20 @@ def create_html_contents_from_db(userName, foodList, reviews):
                 reviews if i == len(foodList) - 1 else ""  # 마지막 아이템에만 reviews 추가
             )
             # 식단 기록에 추가 데이터 순회 및 insert Start
-            example = conn.execute(alarms.insert().values(
-              userName=userName
-              ,alarmState="N"
-              ,recoMeal=row.product_name
-              ,MLD=meal_for_day[i % len(meal_for_day)]
-              ,alarmImg=row.img_url
-              ,recoComment=row.comment,
-            ))
-            # 식단 기록에 추가 데이터 순회 및 insert End
+            try:
+              example = conn.execute(alarms.insert().values(
+                userName=userName
+                ,alarmState="N"
+                ,recoMeal=row.product_name
+                ,MLD=meal_for_day[i % len(meal_for_day)]
+                ,alarmImg=row.img_url
+                ,recoComment=row.comment
+                ,goodFB=goodFb
+                ,badFB=badFb
+              ))
+              # 식단 기록에 추가 데이터 순회 및 insert End
+            except Exception as e:
+              print(e)
             
             result += html_content
     conn.commit()
