@@ -30,5 +30,33 @@ alarms = Table('alarm', meta,
               Column('badFB', String(2000)),
               )
 
+meals = Table('meal', meta,
+              Column('id', INTEGER(), primary_key=True),
+              Column('product_name', String(255)),
+              Column('comment', String(2000)),
+              Column('weight', String(255)),
+              Column('discount_rate', INTEGER()),
+              Column('discounted_price', INTEGER()),
+              Column('original_price', INTEGER()),
+              Column('calorie', INTEGER()),
+              Column('milk_allergy', String(10)),
+              Column('egg_allergy', String(10)),
+              Column('peanut_allergy', String(10)),
+              Column('shellfish_allergy', String(10)),
+              Column('gluten_allergy', String(10)),
+              Column('shrimp_allergy', String(10)),
+              Column('peach_allergy', String(10)),
+              Column('tomato_allergy', String(10)),
+              Column('good_for_hypertension', String(10)),
+              Column('good_for_diabetes', String(10)),
+              Column('good_for_heart_disease', String(10)),
+              Column('good_for_stroke', String(10)),
+              Column('good_for_cancer', String(10)),
+              Column('good_for_liver_disease', String(10)),
+              Column('good_for_lung_disease', String(10)),
+              Column('good_for_obesity_disease', String(10)),
+              Column('img_url', String(2000)),
+          )
+
 
 meta.create_all(engine)
