@@ -1,4 +1,6 @@
 # not used Start
+from langchain.chains import RetrievalQA
+from langchain.llms import OpenAI
 from langchain.chains import LLMMathChain
 from langchain.chains import ChatVectorDBChain #deprecated
 from langchain.chains import ConversationalRetrievalChain
@@ -59,6 +61,7 @@ chat_model = ChatOpenAI(
 )
 PERSIST_DIRECTORY = 'genChromaDB/db'
 PERSIST_DIRECTORY2 = 'genChromaDB/db2'
+PERSIST_DIRECTORY3 = 'genChromaDB/db3'
 
 
 class FoodInfo(BaseModel):
@@ -184,68 +187,97 @@ def getHealthRecoFood(input):
     result = bk_chain({"question": input})
     return result['answer']
 
-def getNutrientInfo(input):
-    # template = '''\
-    #         "{reviews}에 대해서 영양코칭 AI처럼 대답해라"
-    #           \
-    #        '''
-    # prompt = PromptTemplate(
-    #     input_variables=["reviews"],
-    #     template=template,
-    # )
+def getNutrientInfo(question):
+    persist_directory_path3 = Path(PERSIST_DIRECTORY3).resolve()
+    print("PERSIST_DIRECTORY(vectorDB2)의 절대 경로:", persist_directory_path3)
 
-    # persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()
-    # print("PERSIST_DIRECTORY2(vectorDB2)의 절대 경로:", persist_directory_path2)
+    embeddings3 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
+    vectorDB3 = Chroma(persist_directory=PERSIST_DIRECTORY3, embedding_function=embeddings3)
+    print(vectorDB3)
 
-    # embeddings2 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
-    # vectorDB2 = Chroma(persist_directory=PERSIST_DIRECTORY2, embedding_function=embeddings2)
-    # print(vectorDB2)
-    # chat_history = [] #여기에 체팅 히스도리주면되려나 
-    # chain = ConversationalRetrievalChain.from_llm(llm=chat_model, retriever=vectorDB2.as_retriever(), return_source_documents=True, reduce_k_below_max_tokens=True)
-    # result = chain({"question":input, "chat_history": chat_history})
-    
-    # print("is result : " + result['answer'])
-    # return result['answer']
-
-
-
-    persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()
-    print("PERSIST_DIRECTORY(vectorDB2)의 절대 경로:", persist_directory_path2)
-
-    embeddings2 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
-    vectorDB2 = Chroma(persist_directory=PERSIST_DIRECTORY2, embedding_function=embeddings2)
-    print(vectorDB2)
-    
-    system_template="""You are an AI assistant for answering questions about nutrient.
-    You are given the following extracted parts of a long document and a question. Provide a conversational answer.
-    If you don't know the answer, just say "Hmm, I'm not sure." Don't try to make up an answer.
-    If the question is not about the most recent state of the union, politely inform them that you are tuned to only answer questions about the most recent state of the union.
+    template = """
+        Use the following pieces of context to answer the question at the end. 
+    If you don't know the answer, just say that you don't know, don't make up an answer. 
+    If you don't have the accurate answer from document, just say that you don't know, don't make up an answer.  
+    Use three sentences maximum and keep the answer as concise as possible. 
     You must have to answer in Korean.
-    {summaries}
-    """
-    messages = [
-        SystemMessagePromptTemplate.from_template(system_template),
-        HumanMessagePromptTemplate.from_template("{question}")
-    ]
-    prompt = ChatPromptTemplate.from_messages(messages)
-    chain_type_kwargs = {"prompt": prompt}
-    vectordbkwargs = {"search_distance": 0}
-    bk_chain = RetrievalQAWithSourcesChain.from_chain_type(
-        llm=chat_model, 
-        chain_type="stuff", 
-        retriever=vectorDB2.as_retriever(),
-        chain_type_kwargs=chain_type_kwargs,
-        reduce_k_below_max_tokens=True
-    )
+    {context}
+    Question: {question}
+    Helpful Answer:"""
+    QA_CHAIN_PROMPT = PromptTemplate(input_variables=["context", "question"],template=template,)
 
-    result = bk_chain({"question": input, "vectordbkwargs": vectordbkwargs})
-    return result['answer']
+    retriever = vectorDB3.as_retriever(search_type="similarity", search_kwargs={"k": 2})
+    # create a chain to answer questions 
+    llm = OpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo')
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=chat_model, chain_type="stuff", retriever=retriever, return_source_documents=True,
+        chain_type_kwargs={"prompt": QA_CHAIN_PROMPT})
+
+    # qa_chain = RetrievalQA.from_chain_type(llm=chat_model,
+    #                                     retriever=vectorDB2.as_retriever(search_type="similarity", search_kwargs={"k":2}),
+    #                                     return_source_documents=True)
+    
+    #   qa_chain = RetrievalQA.from_chain_type(llm=OpenAI(openai_api_key=os.getenv("OPEN_API_KEY"), model_name='gpt-3.5-turbo'),
+    #                                     retriever=vectorDB2.as_retriever(search_type="similarity", search_kwargs={"k":2}),
+    #                                     return_source_documents=True)
+
+    result = qa_chain({"query": question})
+    print("???: \n")
+    for page_content in (doc.page_content for doc in result["source_documents"]):
+        print("???: " +page_content)
+    isResult =  result["result"] + " ".join("\n\n 참조부분: " + doc.page_content for doc in result["source_documents"])
+    return isResult
+
+# def getNutrientInfo(input):
+#     # persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()
+#     # print("PERSIST_DIRECTORY2(vectorDB2)의 절대 경로:", persist_directory_path2)
+
+#     # embeddings2 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
+#     # vectorDB2 = Chroma(persist_directory=PERSIST_DIRECTORY2, embedding_function=embeddings2)
+#     # print(vectorDB2)
+#     # chat_history = [] #여기에 체팅 히스도리주면되려나 
+#     # chain = ConversationalRetrievalChain.from_llm(llm=chat_model, retriever=vectorDB2.as_retriever(), return_source_documents=True, reduce_k_below_max_tokens=True)
+#     # result = chain({"question":input, "chat_history": chat_history})
+    
+#     # print("is result : " + result['answer'])
+#     # return result['answer']
+#     persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()
+#     print("PERSIST_DIRECTORY(vectorDB2)의 절대 경로:", persist_directory_path2)
+
+#     embeddings2 = OpenAIEmbeddings(openai_api_key=os.getenv("OPEN_API_KEY"))
+#     vectorDB2 = Chroma(persist_directory=PERSIST_DIRECTORY2, embedding_function=embeddings2)
+#     print(vectorDB2)
+    
+#     system_template="""You are an AI assistant for answering questions about nutrient.
+#     You are given the following extracted parts of a long document and a question. Provide a conversational answer.
+#     If you don't know the answer, Don't try to make up an answer.
+#     You must have to answer in Korean.
+#     You must have to cite the source
+#     But Do not attribute unrelated content to the source.
+#     {summaries}
+#     """
+#     messages = [
+#         SystemMessagePromptTemplate.from_template(system_template),
+#         HumanMessagePromptTemplate.from_template("{question}")
+#     ]
+#     prompt = ChatPromptTemplate.from_messages(messages)
+#     chain_type_kwargs = {"prompt": prompt}
+#     vectordbkwargs = {"search_distance": 0}
+#     bk_chain = RetrievalQAWithSourcesChain.from_chain_type(
+#         llm=chat_model, 
+#         chain_type="stuff", 
+#         retriever=vectorDB2.as_retriever(),
+#         chain_type_kwargs=chain_type_kwargs,
+#         reduce_k_below_max_tokens=True
+#     )
+
+#     result = bk_chain({"question": input, "vectordbkwargs": vectordbkwargs})
+#     return result['answer']
 
 def getHealthCoachingInfo(input):
-    template = '''\
-            "{reviews}에 대해서 영양코칭 AI처럼 대답해라"
-              \
-           '''
+    template ="""
+            {reviews}에 대해서 영양코칭 AI처럼 대답해라. You are an AI assistant for answering questions about nutrient. Your name is '현마카세'
+            """
     prompt = PromptTemplate(
         input_variables=["reviews"],
         template=template,
@@ -263,7 +295,8 @@ tools = [
     Tool.from_function(
         name="영양코칭",
         func=getHealthCoachingInfo,
-        description="Use it If you don't have the appropriate tool, use it last",
+        description="Use it If you don't have the appropriate tool like greating, use it last",
+        return_direct=True,
     ),
     Tool.from_function(
         name="상품추천",
