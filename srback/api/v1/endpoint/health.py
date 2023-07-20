@@ -423,7 +423,7 @@ def create_html_content(id, meal_for_day, product_name, comment, calorie, img_ur
     html_content = f'''
     <div style="display: inline-block; max-width: 100%; margin: 10px; text-align: center; font-family: Arial, sans-serif;">
         <div style="border: 1px solid #ccc; padding: 5px;">
-            <a href="https://www.greating.co.kr/market/marketDetail?itemId={id}" target="_blank" onclick="window.open(this.href, 'targetWindow', 'toolbar=no, location=no, status=no, menubar=no, scrollbars=yes, resizable=yes, width=600, height=600'); return false;">
+            <a href="https://www.greating.co.kr/market/marketDetail?itemId={id}" return false;">
                 <img src="{img_url}" alt="Product Image" style="max-width: 100%; height: auto;">
             </a>
         </div>
