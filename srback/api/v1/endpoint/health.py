@@ -460,8 +460,8 @@ def create_html_content(id, meal_for_day, product_name, comment, calorie, img_ur
             <p>{reviews}</p>
         </div>
         <div style="display: flex; justify-content: space-between;">
-            <a href="#/admin/user" style="display: inline-block; flex: 1; color: black; background-color: #e8e8e8; text-align: center; padding: 10px; text-decoration: none; font-size: 14px; margin: 4px 2px; cursor: pointer; border-radius: 12px; max-width: 50%; box-sizing: border-box;">식습관<br>수정하기</a>
-            <a href="#/admin/table-list" style="display: inline-block; flex: 1; color: black; background-color: #e8e8e8; text-align: center; padding: 10px; text-decoration: none; font-size: 14px; margin: 4px 2px; cursor: pointer; border-radius: 12px; max-width: 50%; box-sizing: border-box;">추천 식단<br>보러가기</a>
+            <a href="#/admin/user" style="display: inline-block; flex: 1; color: black; background-color: #e8e3e3; text-align: center; padding: 10px; text-decoration: none; font-size: 14px; margin: 4px 2px; cursor: pointer; border-radius: 12px; max-width: 50%; box-sizing: border-box;">식습관<br>수정하기</a>
+            <a href="#/admin/table-list" style="display: inline-block; flex: 1; color: black; background-color: #e8e3e3; text-align: center; padding: 10px; text-decoration: none; font-size: 14px; margin: 4px 2px; cursor: pointer; border-radius: 12px; max-width: 50%; box-sizing: border-box;">추천 식단<br>보러가기</a>
         </div>
         '''
     return html_content
