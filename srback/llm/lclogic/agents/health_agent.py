@@ -266,8 +266,25 @@ def getNutrientInfo(question):
     print("???: \n")
     for page_content in (doc.page_content for doc in result["source_documents"]):
         print("???: " +page_content)
-    isResult =  result["result"] + " ".join("\n\n 참조부분: " + doc.page_content for doc in result["source_documents"])
-    return isResult
+    # isResult =  result["result"] + " ".join("\n\n 참조부분: " + doc.page_content for doc in result["source_documents"])
+    # return isResult
+    return generate_html(result)
+
+
+def generate_html(result):
+
+    html = "<div>" + result["result"] + "</div>"
+    html += "<div class='popup-container'>"
+    for i, doc in enumerate(result["source_documents"]):
+        html += f"""
+        <div class="popup" onmousedown="document.getElementById('popuptext{i}').style.display = 'block';" onmouseup="document.getElementById('popuptext{i}').style.display = 'none';">
+            참조 {i + 1}
+            <span class="popuptext" id="popuptext{i}">{doc.page_content}</span>
+        </div>
+        """
+    html += "</div>"
+
+    return html
 
 # def getNutrientInfo(input):
 #     # persist_directory_path2 = Path(PERSIST_DIRECTORY2).resolve()

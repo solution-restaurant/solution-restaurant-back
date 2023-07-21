@@ -248,6 +248,8 @@ def receive_message(data : Model):
     print("json 로드 불가능 메시지 바로 반환 End")
     # a를 수행합니다.
   
+  if data.content is None:
+    data.content = '죄송합니다. 다시 한번 요청해주세요.'
   
   data.content = data.content.replace('\n', '<br>') # 메시지 html형으로 변환
   data.userName='영양코칭AI'
