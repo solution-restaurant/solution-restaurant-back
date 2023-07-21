@@ -56,7 +56,7 @@ from langchain.output_parsers import PydanticOutputParser
 
 # global data Start
 import srback.api.v1.endpoint.userProperties as globalUser
-
+globalPopupIndex = 1
 # global data End
 
 chat_model = ChatOpenAI(
@@ -272,16 +272,18 @@ def getNutrientInfo(question):
 
 
 def generate_html(result):
+    global globalPopupIndex 
 
     html = "<div>" + result["result"] + "</div>"
     html += "<div class='popup-container'>"
     for i, doc in enumerate(result["source_documents"]):
         html += f"""
-        <div class="popup" onmousedown="document.getElementById('popuptext{i}').style.display = 'block';" onmouseup="document.getElementById('popuptext{i}').style.display = 'none';">
-            참조 {i + 1}
-            <span class="popuptext" id="popuptext{i}">{doc.page_content}</span>
+        <div class="popup" onmousedown="document.getElementById('popuptext{globalPopupIndex}').style.display = 'block';" onmouseup="document.getElementById('popuptext{globalPopupIndex}').style.display = 'none';">
+            참조 {i+1}
+            <span class="popuptext" id="popuptext{globalPopupIndex}">{doc.page_content}</span>
         </div>
         """
+        globalPopupIndex += 1
     html += "</div>"
 
     return html
